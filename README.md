@@ -77,23 +77,19 @@ uname -r
 
 Achro-EM Kit의 I/O Device 보드가 연결되어 있어야 합니다. 교재 안내처럼 I/O Device 보드 중앙 하단부의 SW7 스위치 1번을 ON 상태로 둡니다.
 
-키트에 접속한 뒤 저장소를 받은 위치에서 실습 파일을 `/home/pi/Modules`로 복사합니다.
+키트에 접속한 뒤 저장소 디렉토리로 이동합니다. 실습 파일은 `/home/pi/Modules`로 복사하지 않고 저장소 안에서 바로 사용합니다.
 
 ```bash
 cd ~/embweek13
-mkdir -p /home/pi/Modules
-cp prebuilt/drivers/*.ko /home/pi/Modules/
-cp prebuilt/apps/fpga_test_* /home/pi/Modules/
-chmod +x /home/pi/Modules/fpga_test_*
-cd /home/pi/Modules
+chmod +x prebuilt/apps/fpga_test_*
 ```
 
 환경을 확인합니다.
 
 ```bash
 uname -r
-ls -l *.ko fpga_test_*
-strings fpga_interface_driver.ko | grep '^vermagic='
+ls -l prebuilt/drivers/*.ko prebuilt/apps/fpga_test_*
+strings prebuilt/drivers/fpga_interface_driver.ko | grep '^vermagic='
 ```
 
 ## 공통 실습 순서
@@ -110,8 +106,8 @@ strings fpga_interface_driver.ko | grep '^vermagic='
 인터페이스 드라이버는 개별 디바이스 드라이버들이 공통으로 사용하는 하위 드라이버입니다. 따라서 가장 먼저 적재하고 가장 마지막에 제거합니다.
 
 ```bash
-cd /home/pi/Modules
-sudo insmod fpga_interface_driver.ko
+cd ~/embweek13
+sudo insmod prebuilt/drivers/fpga_interface_driver.ko
 lsmod | grep fpga
 ```
 
@@ -120,7 +116,7 @@ lsmod | grep fpga
 LED 드라이버를 적재하고 디바이스 노드를 만듭니다.
 
 ```bash
-sudo insmod fpga_led_driver.ko
+sudo insmod prebuilt/drivers/fpga_led_driver.ko
 sudo mknod /dev/fpga_led c 260 0
 sudo chmod 666 /dev/fpga_led
 ls -l /dev/fpga_led
@@ -129,9 +125,9 @@ ls -l /dev/fpga_led
 테스트 앱을 실행합니다.
 
 ```bash
-./fpga_test_led 255
-./fpga_test_led 0
-./fpga_test_led 170
+./prebuilt/apps/fpga_test_led 255
+./prebuilt/apps/fpga_test_led 0
+./prebuilt/apps/fpga_test_led 170
 ```
 
 정리합니다.
@@ -144,15 +140,15 @@ sudo rmmod fpga_led_driver
 ## FND 실습
 
 ```bash
-sudo insmod fpga_fnd_driver.ko
+sudo insmod prebuilt/drivers/fpga_fnd_driver.ko
 sudo mknod /dev/fpga_fnd c 261 0
 sudo chmod 666 /dev/fpga_fnd
 ls -l /dev/fpga_fnd
 ```
 
 ```bash
-./fpga_test_fnd 1234
-./fpga_test_fnd 5678
+./prebuilt/apps/fpga_test_fnd 1234
+./prebuilt/apps/fpga_test_fnd 5678
 ```
 
 ```bash
@@ -163,15 +159,15 @@ sudo rmmod fpga_fnd_driver
 ## Dot Matrix 실습
 
 ```bash
-sudo insmod fpga_dot_driver.ko
+sudo insmod prebuilt/drivers/fpga_dot_driver.ko
 sudo mknod /dev/fpga_dot c 262 0
 sudo chmod 666 /dev/fpga_dot
 ls -l /dev/fpga_dot
 ```
 
 ```bash
-./fpga_test_dot 7
-./fpga_test_dot 3
+./prebuilt/apps/fpga_test_dot 7
+./prebuilt/apps/fpga_test_dot 3
 ```
 
 ```bash
@@ -182,15 +178,15 @@ sudo rmmod fpga_dot_driver
 ## Text LCD 실습
 
 ```bash
-sudo insmod fpga_text_lcd_driver.ko
+sudo insmod prebuilt/drivers/fpga_text_lcd_driver.ko
 sudo mknod /dev/fpga_text_lcd c 263 0
 sudo chmod 666 /dev/fpga_text_lcd
 ls -l /dev/fpga_text_lcd
 ```
 
 ```bash
-./fpga_test_text_lcd hello world
-./fpga_test_text_lcd CAU EMBEDDED
+./prebuilt/apps/fpga_test_text_lcd hello world
+./prebuilt/apps/fpga_test_text_lcd CAU EMBEDDED
 ```
 
 ```bash
@@ -203,14 +199,14 @@ sudo rmmod fpga_text_lcd_driver
 `fpga_test_buzzer`는 계속 실행되므로 관찰 후 `Ctrl+C`로 종료합니다.
 
 ```bash
-sudo insmod fpga_buzzer_driver.ko
+sudo insmod prebuilt/drivers/fpga_buzzer_driver.ko
 sudo mknod /dev/fpga_buzzer c 264 0
 sudo chmod 666 /dev/fpga_buzzer
 ls -l /dev/fpga_buzzer
 ```
 
 ```bash
-./fpga_test_buzzer
+./prebuilt/apps/fpga_test_buzzer
 # Ctrl+C로 종료
 ```
 
@@ -224,14 +220,14 @@ sudo rmmod fpga_buzzer_driver
 `fpga_test_dip_switch`는 스위치 값을 반복해서 읽습니다. 관찰 후 `Ctrl+C`로 종료합니다.
 
 ```bash
-sudo insmod fpga_dip_switch_driver.ko
+sudo insmod prebuilt/drivers/fpga_dip_switch_driver.ko
 sudo mknod /dev/fpga_dip_switch c 266 0
 sudo chmod 666 /dev/fpga_dip_switch
 ls -l /dev/fpga_dip_switch
 ```
 
 ```bash
-./fpga_test_dip_switch
+./prebuilt/apps/fpga_test_dip_switch
 # Ctrl+C로 종료
 ```
 
@@ -245,14 +241,14 @@ sudo rmmod fpga_dip_switch_driver
 `fpga_test_push_switch`는 버튼 값을 반복해서 읽습니다. 관찰 후 `Ctrl+C`로 종료합니다.
 
 ```bash
-sudo insmod fpga_push_switch_driver.ko
+sudo insmod prebuilt/drivers/fpga_push_switch_driver.ko
 sudo mknod /dev/fpga_push_switch c 265 0
 sudo chmod 666 /dev/fpga_push_switch
 ls -l /dev/fpga_push_switch
 ```
 
 ```bash
-./fpga_test_push_switch
+./prebuilt/apps/fpga_test_push_switch
 # Ctrl+C로 종료
 ```
 
@@ -266,16 +262,16 @@ sudo rmmod fpga_push_switch_driver
 모터는 반드시 정지 명령까지 실행한 뒤 정리합니다.
 
 ```bash
-sudo insmod fpga_step_motor_driver.ko
+sudo insmod prebuilt/drivers/fpga_step_motor_driver.ko
 sudo mknod /dev/fpga_step_motor c 267 0
 sudo chmod 666 /dev/fpga_step_motor
 ls -l /dev/fpga_step_motor
 ```
 
 ```bash
-./fpga_test_step_motor 1 0 10
-./fpga_test_step_motor 1 1 10
-./fpga_test_step_motor 0 0 10
+./prebuilt/apps/fpga_test_step_motor 1 0 10
+./prebuilt/apps/fpga_test_step_motor 1 1 10
+./prebuilt/apps/fpga_test_step_motor 0 0 10
 ```
 
 ```bash
@@ -359,7 +355,7 @@ source/fpga_led/fpga_test_led.c
 
 ```bash
 uname -r
-strings /home/pi/Modules/fpga_led_driver.ko | grep '^vermagic='
+strings prebuilt/drivers/fpga_led_driver.ko | grep '^vermagic='
 ```
 
 ### `insmod: Unknown symbol`
@@ -367,7 +363,7 @@ strings /home/pi/Modules/fpga_led_driver.ko | grep '^vermagic='
 개별 디바이스 드라이버보다 `fpga_interface_driver.ko`를 먼저 적재했는지 확인합니다.
 
 ```bash
-sudo insmod /home/pi/Modules/fpga_interface_driver.ko
+sudo insmod prebuilt/drivers/fpga_interface_driver.ko
 ```
 
 ### `File exists`
