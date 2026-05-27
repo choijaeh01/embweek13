@@ -31,6 +31,165 @@ fpga_interface_driver.ko
 Achro-EM Kit I/O Board
 ```
 
+## 개념 정리
+
+### `/dev` 디렉토리
+
+`/dev`는 이번 실습에서만 사용하는 특수한 폴더가 아니라, 리눅스에서 디바이스 파일들이 위치하는 표준 디렉토리입니다.
+
+리눅스에서는 많은 장치를 파일처럼 다룹니다. 예를 들어 `/dev/null`, `/dev/tty`, `/dev/mmcblk0`, `/dev/i2c-1` 같은 파일들은 일반 텍스트 파일이 아니라 커널 드라이버와 연결되는 디바이스 파일입니다.
+
+이번 실습의 `/dev/fpga_led`, `/dev/fpga_fnd`, `/dev/fpga_push_switch`도 같은 개념입니다. 단지 이름이 Achro-EM Kit의 FPGA I/O 장치에 맞게 붙은 것입니다.
+
+```text
+/dev
+  리눅스에서 디바이스 파일이 위치하는 표준 디렉토리
+
+/dev/fpga_led
+  Achro-EM LED 드라이버에 접근하기 위해 만드는 디바이스 파일
+```
+
+### 노드 파일, 스페셜 파일, 디바이스 파일
+
+`mknod`로 만드는 `/dev/fpga_led`는 일반 파일이 아닙니다. 이 파일 안에 LED 값이 저장되는 것이 아니라, 사용자 프로그램이 커널 드라이버로 들어가기 위한 입구 역할을 합니다.
+
+```bash
+sudo mknod /dev/fpga_led c 260 0
+ls -l /dev/fpga_led
+```
+
+출력은 보통 다음과 비슷합니다.
+
+```text
+crw-r--r-- 1 root root 260, 0 ... /dev/fpga_led
+```
+
+여기서 앞의 `c`는 character device를 의미합니다.
+
+```text
+c    character device
+260  major number
+0    minor number
+```
+
+major number는 이 디바이스 파일이 어떤 커널 드라이버로 연결될지를 결정하는 번호입니다. minor number는 같은 드라이버 안에서 여러 장치를 구분할 때 사용하는 번호입니다. 이번 LED 실습에서는 minor number를 `0`으로 사용합니다.
+
+### `insmod`와 `mknod`의 관계
+
+`insmod`와 `mknod`는 서로를 직접 호출하지 않습니다. 역할이 다릅니다.
+
+```text
+insmod
+  .ko 파일을 커널에 적재한다.
+  드라이버 코드가 커널 안에 등록된다.
+
+mknod
+  /dev/fpga_led 같은 디바이스 파일을 만든다.
+  사용자 프로그램이 드라이버에 접근할 입구를 만든다.
+```
+
+LED 드라이버를 예로 들면, 먼저 다음 명령으로 드라이버를 커널에 적재합니다.
+
+```bash
+sudo insmod prebuilt/drivers/fpga_led_driver.ko
+```
+
+실제 Achro-EM 실습에서는 LED 드라이버가 `fpga_interface_driver.ko`의 함수를 사용하므로, 공통 인터페이스 드라이버를 먼저 적재한 뒤 LED 드라이버를 적재합니다. 여기서는 `insmod`와 `mknod`의 관계를 설명하기 위해 LED 드라이버 등록 과정만 따로 떼어 설명합니다.
+
+드라이버 내부에서는 major number를 커널에 등록합니다.
+
+```c
+register_chrdev(260, "fpga_led", &iom_led_fops);
+```
+
+이 코드는 커널에게 다음과 같이 알려주는 역할을 합니다.
+
+```text
+major number 260으로 들어오는 character device 요청은
+fpga_led_driver의 file_operations로 연결한다.
+```
+
+그 다음 `mknod`로 같은 major number를 가진 디바이스 파일을 만듭니다.
+
+```bash
+sudo mknod /dev/fpga_led c 260 0
+```
+
+이제 `/dev/fpga_led`는 major number 260을 가리키는 입구가 됩니다. 따라서 사용자 프로그램이 `/dev/fpga_led`를 열면 커널은 major number 260에 등록된 LED 드라이버를 찾아갑니다.
+
+```text
+사용자 프로그램
+  open("/dev/fpga_led")
+  write()
+  read()
+        |
+        v
+/dev/fpga_led
+  character device, major 260, minor 0
+        |
+        v
+커널의 major 260 등록 정보
+        |
+        v
+fpga_led_driver의 file_operations
+        |
+        v
+iom_led_open(), iom_led_write(), iom_led_read()
+```
+
+즉, `mknod`는 응용프로그램과 디바이스 드라이버를 연결하는 사용자 공간의 접점을 만드는 명령입니다. 하지만 이 연결이 동작하려면 드라이버가 먼저 `insmod`로 커널에 올라가 있어야 하고, `mknod`에서 지정한 major number가 드라이버가 등록한 major number와 같아야 합니다.
+
+```text
+insmod만 한 경우
+  드라이버는 커널에 있지만 사용자가 접근할 /dev 입구가 없다.
+
+mknod만 한 경우
+  /dev 파일은 있지만 해당 major number를 처리할 드라이버가 없을 수 있다.
+
+insmod와 mknod를 모두 올바르게 한 경우
+  사용자 프로그램의 open/read/write가 해당 드라이버 함수로 전달된다.
+```
+
+### 사용자 프로그램과 드라이버의 연결
+
+사용자 프로그램은 하드웨어를 직접 제어하지 않고 `/dev/fpga_led`를 일반 파일처럼 엽니다.
+
+```c
+dev = open("/dev/fpga_led", O_RDWR);
+write(dev, &data, 1);
+read(dev, &data, 1);
+close(dev);
+```
+
+하지만 커널 내부에서는 이 호출들이 드라이버의 `file_operations`에 등록된 함수로 연결됩니다.
+
+```c
+struct file_operations iom_led_fops = {
+    .open = iom_led_open,
+    .write = iom_led_write,
+    .read = iom_led_read,
+    .release = iom_led_release,
+};
+```
+
+따라서 이번 실습의 핵심은 단순히 명령어를 입력하는 것이 아니라, 다음 연결 관계를 이해하는 것입니다.
+
+```text
+fpga_test_led.c
+  open(), write(), read(), close()
+        |
+        v
+/dev/fpga_led
+  mknod로 만든 character device node
+        |
+        v
+fpga_led_driver.c
+  file_operations에 등록된 함수
+        |
+        v
+Achro-EM Kit LED 하드웨어
+```
+
 ## 중요한 제한
 
 현재 실습 키트에서는 다음 경로가 깨져 있어 커널 모듈을 새로 빌드하기 어렵습니다.
