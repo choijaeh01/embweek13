@@ -549,7 +549,3 @@ lsmod | grep fpga
 ps aux | grep fpga_test
 sudo rmmod fpga_led_driver
 ```
-
-## 배포 주의
-
-이 저장소에는 Achro-EM Kit 실습을 위한 prebuilt 바이너리가 포함됩니다. 공개 GitHub 저장소로 배포하기 전에는 제공 자료의 라이선스와 재배포 가능 여부를 확인해야 합니다. 수업용 배포는 비공개 저장소, LMS, 또는 제한된 접근 권한이 있는 드라이브를 권장합니다.
